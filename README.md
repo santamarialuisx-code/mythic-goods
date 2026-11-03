@@ -209,6 +209,32 @@ irreversible step in the panel: that file is the only copy.
 - The bucket is public-read with no write policy, so uploads and deletes run
 with the service_role key on the server and re-check the admin cookie first.
 
+## Cart and order
+
+The storefront is catalog → cart → WhatsApp. Nothing is charged inside the app.
+
+- The cart is browser state (`src/lib/cart/store.ts`, Zustand + `localStorage`).
+  A line is a product + variant pair, so adding the same pair again grows one
+  line. Prices in the cart are a display snapshot only.
+- `createOrderAction` (`src/app/(shop)/cart/order-actions.ts`) receives just the
+  variant ids and quantities. It re-reads price, name, variant label and stock
+  from the database with the service_role key, so a visitor editing
+  `localStorage` cannot choose what an order costs.
+- Orders are written as `pending` with the snapshot columns, and stock is **not**
+  decremented: confirmation is manual (Pago Móvil, Zelle, Binance Pay), so an
+  abandoned order must not eat inventory. Adjust stock when the payment lands.
+- `shipping_cents` stays `0` and the total equals the subtotal; delivery cost is
+  agreed in the chat.
+- The confirmation page is reachable by the random order id, never by the
+  sequential `MG-#####` code, and it is `noindex`.
+- `NEXT_PUBLIC_WHATSAPP_NUMBER` holds the shop's number as digits with the
+  country code (no `+`, no separators), for example `584121234567`. With it
+  unset, the confirmation page explains the missing setting and leaves the order
+  summary copyable instead of rendering a dead link.
+- Known limits: supabase-js has no transaction, so an order whose item insert
+  fails is deleted again immediately; and nothing rate-limits order creation,
+  which is acceptable while every order is confirmed by hand.
+
 ## Venezuela notes (payments come later)
 
 Prices default to `USD` because that is how most local catalogs quote. Payment
