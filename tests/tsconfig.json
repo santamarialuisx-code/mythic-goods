@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "outDir": "./build",
+    "rootDir": "../src",
+    "baseUrl": "../",
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": [
+    "../src/app/(shop)/cart/order-actions.ts",
+    "../src/lib/orders/whatsapp.ts"
+  ]
+}

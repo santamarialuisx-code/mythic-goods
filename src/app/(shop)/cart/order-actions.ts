@@ -76,6 +76,8 @@ type CheckoutValues = {
   lines: { variantId: string; qty: number }[];
 };
 
+const SAVE_FAILED = "No pudimos guardar el pedido. Probá de nuevo en un rato.";
+
 function cartError(message: string): CheckoutState {
   return { status: "error", message, fieldErrors: {} };
 }
@@ -102,12 +104,25 @@ function parseCheckout(
     };
   }
 
-  const items = z.array(lineSchema).min(1, "El carrito está vacío.").max(MAX_LINES, "El carrito es demasiado grande.").safeParse(parsedItems);
+  const items = z.array(lineSchema).min(1).max(MAX_LINES).safeParse(parsedItems);
 
   if (!items.success) {
+    if (Array.isArray(parsedItems) && parsedItems.length === 0) {
+      return { ok: false, message: "El carrito está vacío.", fieldErrors: {} };
+    }
+
+    if (Array.isArray(parsedItems) && parsedItems.length > MAX_LINES) {
+      return {
+        ok: false,
+        message: `El carrito es demasiado grande: máximo ${MAX_LINES} líneas.`,
+        fieldErrors: {},
+      };
+    }
+
     return {
       ok: false,
-      message: "El carrito tiene datos inválidos. Recargá la página y volvé a intentar.",
+      message:
+        "El carrito tiene datos inválidos. Recargá la página y volvé a intentar.",
       fieldErrors: {},
     };
   }
@@ -270,54 +285,74 @@ export async function createOrderAction(
   const shippingCents = 0; // delivery is agreed in the chat
   const currency = lines[0].currency;
 
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .insert({
-      customer_name: values.customerName,
-      customer_phone: values.customerPhone,
-      notes: values.notes,
-      subtotal_cents: subtotalCents,
-      shipping_cents: shippingCents,
-      total_cents: subtotalCents + shippingCents,
-      currency,
-      status: "pending",
-    })
-    .select("id, code")
-    .single();
+  // supabase-js has no transaction: the header row and its lines are two
+  // statements. Every failure below removes the header it just wrote, so a
+  // phantom order cannot survive an items failure or a thrown error.
+  let created: { id: string; code: string } | null = null;
 
-  if (orderError) {
-    console.error("[orders] insert failed:", orderError.message);
-    return cartError("No pudimos guardar el pedido. Probá de nuevo en un rato.");
-  }
-
-  const { error: itemsError } = await supabase.from("order_items").insert(
-    lines.map((line) => ({
-      order_id: order.id,
-      variant_id: line.variantId,
-      product_name: line.productName,
-      variant_label: line.variantLabel,
-      qty: line.qty,
-      unit_price_cents: line.unitPriceCents,
-      line_total_cents: line.lineTotalCents,
-    })),
-  );
-
-  if (itemsError) {
-    console.error("[orders] items insert failed:", itemsError.message, order.id);
-
-    // supabase-js has no transaction: an order without lines would be a
-    // phantom in the panel, so the header row is removed again.
-    const { error: cleanupError } = await supabase
+  try {
+    const { data, error } = await supabase
       .from("orders")
-      .delete()
-      .eq("id", order.id);
+      .insert({
+        customer_name: values.customerName,
+        customer_phone: values.customerPhone,
+        notes: values.notes,
+        subtotal_cents: subtotalCents,
+        shipping_cents: shippingCents,
+        total_cents: subtotalCents + shippingCents,
+        currency,
+        status: "pending",
+      })
+      .select("id, code")
+      .single();
 
-    if (cleanupError) {
-      console.error("[orders] empty order cleanup failed:", cleanupError.message, order.id);
+    if (error) {
+      console.error("[orders] insert failed:", error.message);
+      return cartError(SAVE_FAILED);
     }
 
-    return cartError("No pudimos guardar el pedido. Probá de nuevo en un rato.");
+    created = data;
+
+    const { error: itemsError } = await supabase.from("order_items").insert(
+      lines.map((line) => ({
+        order_id: created!.id,
+        variant_id: line.variantId,
+        product_name: line.productName,
+        variant_label: line.variantLabel,
+        qty: line.qty,
+        unit_price_cents: line.unitPriceCents,
+        line_total_cents: line.lineTotalCents,
+      })),
+    );
+
+    if (itemsError) {
+      console.error("[orders] items insert failed:", itemsError.message, created.id);
+      throw new Error(itemsError.message);
+    }
+  } catch (cause) {
+    if (created) {
+      const { error: cleanupError } = await supabase
+        .from("orders")
+        .delete()
+        .eq("id", created.id);
+
+      if (cleanupError) {
+        console.error(
+          "[orders] empty order cleanup failed:",
+          cleanupError.message,
+          created.id,
+        );
+      }
+    }
+
+    if (cause instanceof Error) {
+      console.error("[orders] order write failed:", cause.message);
+    }
+
+    return cartError(SAVE_FAILED);
   }
 
-  return { status: "success", orderId: order.id, code: order.code };
+  if (!created) return cartError(SAVE_FAILED);
+
+  return { status: "success", orderId: created.id, code: created.code };
 }

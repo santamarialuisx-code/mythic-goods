@@ -232,8 +232,11 @@ The storefront is catalog → cart → WhatsApp. Nothing is charged inside the a
   unset, the confirmation page explains the missing setting and leaves the order
   summary copyable instead of rendering a dead link.
 - Known limits: supabase-js has no transaction, so an order whose item insert
-  fails is deleted again immediately; and nothing rate-limits order creation,
-  which is acceptable while every order is confirmed by hand.
+  fails is deleted again immediately; if that cleanup also fails the error is
+  logged with the order id, which is the only case a headerless order can
+  survive. Nothing rate-limits order creation, which is acceptable while every
+  order is confirmed by hand. The confirmation page lists lines alphabetically,
+  because `order_items` keeps no position column.
 
 ## Venezuela notes (payments come later)
 
@@ -250,8 +253,14 @@ npm run dev      # dev server (Turbopack)
 npm run build    # production build
 npm run start    # serve the build
 npm run lint     # eslint
+npm test         # unit tests (compiles two modules, then `node --test`)
 npm run secret   # random 64-char value for ADMIN_SESSION_SECRET
 ```
+
+`tests/` holds the only automated checks: the cart store runs straight from
+TypeScript, and the order action is compiled to `tests/build` first because it
+imports path aliases and a server-only Supabase client. No test runner was
+added: it is `tsc` plus Node's built-in `node:test`.
 
 `.agents/skills/` holds the Supabase agent guidance installed with
 `npx skills add supabase/agent-skills`; Pi discovers project skills from there.

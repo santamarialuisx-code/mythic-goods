@@ -38,9 +38,14 @@ const STORAGE_KEY = "mythic-goods-cart";
 /** Keeps a quantity a whole number between 1 and the variant's stock. */
 export function clampQuantity(quantity: number, maxQuantity: number) {
   const cap = Math.max(1, Math.trunc(maxQuantity));
-  const wanted = Number.isFinite(quantity) ? Math.trunc(quantity) : 1;
 
-  return Math.min(Math.max(wanted, 1), cap);
+  // NaN is corrupt data and falls to the safe minimum; an infinite quantity is
+  // a cap request, not a zero.
+  if (!Number.isFinite(quantity)) {
+    return Number.isNaN(quantity) || quantity < 0 ? 1 : cap;
+  }
+
+  return Math.min(Math.max(Math.trunc(quantity), 1), cap);
 }
 
 function sameLine(a: CartLine, b: CartLine) {
@@ -55,7 +60,17 @@ function sameLine(a: CartLine, b: CartLine) {
 function putLine(lines: CartLine[], incoming: CartLine): CartLine[] {
   const index = lines.findIndex((line) => sameLine(line, incoming));
 
-  if (index === -1) return [...lines, incoming];
+  if (index === -1) {
+    // Clamped even on the first add: the store must not depend on the caller
+    // having respected the stock it read from the page snapshot.
+    return [
+      ...lines,
+      {
+        ...incoming,
+        quantity: clampQuantity(incoming.quantity, incoming.maxQuantity),
+      },
+    ];
+  }
 
   const existing = lines[index];
   const merged: CartLine = {
