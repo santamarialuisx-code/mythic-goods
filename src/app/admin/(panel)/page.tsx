@@ -70,7 +70,7 @@ export default async function AdminHomePage() {
             y subí las suyas.
           </li>
           <li>Carrito + pedido (WhatsApp primero, pago después).</li>
-          <li>Categorías administrables (hoy salen del seed).</li>        </ul>
+        </ul>
       </section>
     </div>
   );

@@ -7,7 +7,6 @@ import { redirect } from "next/navigation";
 
 import { hasAdminSession, writeBlockedReason } from "@/lib/admin-write-guard";
 import {
-  imageExtensionFor,
   isProductImagePath,
   productImagePath,
   validateImageSelection,
@@ -42,7 +41,13 @@ function revalidateCatalog() {
   revalidatePath("/admin/products");
 }
 
-/** Best effort: an orphan object is recoverable, a row pointing nowhere is not. */
+/**
+ * Row first, object second, always in that order.
+ *
+ * A row pointing at a missing object is what a visitor sees as a broken photo,
+ * so rows go first; an orphan object is recoverable and can be swept by hand.
+ * The upload rollback and the single-photo delete below both rely on it.
+ */
 async function removeObjects(supabase: AdminClient, paths: string[]) {
   if (paths.length === 0) return;
 
@@ -55,6 +60,34 @@ async function removeObjects(supabase: AdminClient, paths: string[]) {
   }
 }
 
+/** Row half of the ordering above; the paths half runs right after it. */
+async function removeRows(supabase: AdminClient, ids: string[]) {
+  if (ids.length === 0) return;
+
+  const { error } = await supabase.from("product_images").delete().in("id", ids);
+
+  if (error) {
+    console.error("[admin] photo rollback rows failed:", error.message, ids);
+  }
+}
+
+/**
+ * Undo a partial batch so a failed upload leaves neither row nor object behind:
+ * the rows this attempt inserted are dropped, then every object it wrote.
+ */
+async function rollbackBatch(
+  supabase: AdminClient,
+  rowIds: string[],
+  storagePaths: string[],
+) {
+  await removeRows(supabase, rowIds);
+  await removeObjects(supabase, storagePaths);
+}
+
+/**
+ * All-or-nothing: a failed batch rolls back the rows it inserted and then the
+ * objects it wrote, so the product never keeps a photo the store cannot serve.
+ */
 export async function uploadProductImagesAction(
   _previousState: ImageUploadState,
   formData: FormData,
@@ -71,10 +104,11 @@ export async function uploadProductImagesAction(
     return { status: "error", message: "Producto inválido." };
   }
 
-  // An empty file input still submits one nameless, sizeless entry.
+  // An empty file input still submits one nameless entry; a 0-byte file is a
+  // real selection and has to reach validation to get its own message.
   const files = formData
     .getAll("photos")
-    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+    .filter((entry): entry is File => entry instanceof File && entry.name !== "");
 
   const selection = validateImageSelection(files);
   if (!selection.ok) return { status: "error", message: selection.message };
@@ -97,18 +131,10 @@ export async function uploadProductImagesAction(
   }
 
   let position = (lastImage?.position ?? -1) + 1;
+  const insertedIds: string[] = [];
   const uploaded: string[] = [];
 
-  for (const file of files) {
-    const extension = imageExtensionFor(file.type);
-    if (!extension) {
-      await removeObjects(supabase, uploaded);
-      return {
-        status: "error",
-        message: `${file.name}: formato no soportado.`,
-      };
-    }
-
+  for (const { file, extension } of selection.accepted) {
     // The original name is dropped on purpose: accents, spaces and emoji make
     // brittle URLs, and a uuid cannot collide with an existing photo.
     const storagePath = productImagePath(
@@ -125,25 +151,30 @@ export async function uploadProductImagesAction(
       });
 
     if (uploadError) {
-      await removeObjects(supabase, uploaded);
+      await rollbackBatch(supabase, insertedIds, uploaded);
       return {
         status: "error",
         message: `No se pudo subir ${file.name}: ${uploadError.message}`,
       };
     }
 
-    const { error: rowError } = await supabase
+    const { data: row, error: rowError } = await supabase
       .from("product_images")
-      .insert({ product_id: productId, storage_path: storagePath, position });
+      .insert({ product_id: productId, storage_path: storagePath, position })
+      .select("id")
+      .single();
 
     if (rowError) {
-      await removeObjects(supabase, [...uploaded, storagePath]);
+      // The object for the failed row is already in the bucket, so it joins the
+      // rollback set; `uploaded` alone would leave it orphaned.
+      await rollbackBatch(supabase, insertedIds, [...uploaded, storagePath]);
       return {
         status: "error",
         message: `No se pudo guardar la foto: ${rowError.message}`,
       };
     }
 
+    insertedIds.push(row.id);
     uploaded.push(storagePath);
     position += 1;
   }

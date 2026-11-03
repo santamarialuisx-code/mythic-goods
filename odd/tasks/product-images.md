@@ -108,3 +108,39 @@ counts back to 8 products / 17 variants / 0 images / 0 objects,
 
 **L10** (commits): `1f034d3` server side (T1-T4), `1abb70f` edit-page UI (T5-T6),
 this docs commit (T7).
+
+**L11** (independent verifier, before delivery): two defects and five minors.
+- **B1 (blocker, S3):** `src/proxy.ts` matches `/admin/:path*`, so Next clones and
+buffers every request body for proxy with `experimental.proxyClientMaxBodySize`,
+which defaults to 10 MB and **silently truncates** past it while still returning
+HTTP 200. `serverActions.bodySizeLimit` alone never protected a 6 x 5 MB batch;
+proven with a 12 MiB body truncated to 10,485,760 B.
+- **B2 (severe):** the upload rollback removed objects whose `product_images`
+rows were already inserted, leaving rows that point at deleted files — the
+exact inverse of the documented invariant.
+- Minors: `isProductImagePath` accepted `%2e%2e%2f` traversal, the "el archivo
+está vacío" message was unreachable server-side (0-byte entries were filtered
+out first), a 5 MB + 1 byte file printed "pesa 5,0 MB y el máximo es 5,0 MB",
+a dead extension branch after validation, and out-of-scope panel copy with
+broken formatting.
+
+**L12** (fixes): `proxyClientMaxBodySize: "32mb"` beside `bodySizeLimit`;
+`rollbackBatch` deletes the rows this attempt inserted and then the objects it
+wrote; the path guard is now a strict `<uuid>/<uuid>.(jpg|png|webp|avif)`
+convention check, so `%`, `..` and backslashes cannot match; only nameless
+FormData entries are filtered; the file size prints with 2 decimals and the
+limit with 0; `validateImageSelection` returns `accepted: { file, extension }[]`
+so the action never re-derives the extension.
+
+**L13** (evidence after the fixes, dev server on `localhost:3110`): a batch of 5
+noise PNGs totalling **13,29 MB** (largest 2,66 MB) uploaded in one submit →
+"5 fotos agregadas.", 5 rows and 5 objects, and **zero** "Request body
+exceeded" lines in the dev log; that same batch sat above the old 10 MB proxy
+cap. The rollback was forced with `storage.buckets.file_size_limit = 1 MiB`: a
+198 KB file uploaded and inserted, then a 2,79 MB file was rejected by Storage
+("The object exceeded the maximum allowed size") → the batch rolled back and the
+rows and objects were **byte-identical** to the pre-batch snapshot (5 / 5, same
+md5 of both path lists), with the thumbnail count unchanged. Bucket limit
+restored to `null`, QA product and its 5 objects deleted, counts back to
+8 products / 17 variants / 0 images / 0 objects, `/product/producto-qa-grande`
+404 and absent from `/catalog`.
