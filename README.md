@@ -87,7 +87,7 @@ src/
 │   ├── env.ts                  # env access + isSupabaseConfigured
 │   └── format.ts               # money + variant labels
 ├── proxy.ts                    # /admin gate (runs before any render)
-└── types/database.ts           # hand-written mirror of the SQL schema
+└── types/database.ts           # generated from the live database
 ```
 
 Data flow: pages call `src/lib/catalog/queries.ts` → returns domain types
@@ -109,6 +109,20 @@ Data flow: pages call `src/lib/catalog/queries.ts` → returns domain types
 RLS: anonymous visitors can only `SELECT` active catalog rows. `orders` and
 `order_items` have **no** policies at all, which means anon is denied; writes go
 through server actions with the service_role key.
+
+### Regenerating types
+
+`src/types/database.ts` is generated, never hand-edited: it mirrors whatever the
+database currently has, including enum values and foreign keys.
+
+```bash
+npx supabase gen types typescript --project-id <ref> --schema public > src/types/database.ts
+```
+
+With the Supabase MCP server connected (`pi mcp login supabase`) the same output
+comes from its `generate_typescript_types` tool. Re-run it after every
+migration, otherwise the panel type-checks against a schema that no longer
+exists.
 
 ## Admin gate
 
@@ -173,6 +187,9 @@ npm run start    # serve the build
 npm run lint     # eslint
 npm run secret   # random 64-char value for ADMIN_SESSION_SECRET
 ```
+
+`.agents/skills/` holds the Supabase agent guidance installed with
+`npx skills add supabase/agent-skills`; Pi discovers project skills from there.
 
 ## Next steps
 

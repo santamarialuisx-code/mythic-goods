@@ -4,7 +4,7 @@ import { mockCategories, mockProductBySlug, mockProductList } from "./mock";
 import type { Category, ProductDetail, ProductListItem } from "./types";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
-import type { TableRow } from "@/types/database";
+import type { Tables } from "@/types/database";
 
 const PRODUCT_COLUMNS =
   "id, slug, name, description, category_id, price_cents, compare_at_cents, currency, created_at";
@@ -175,7 +175,7 @@ export async function getProductBySlug(
 
 function toListItem(
   product: Pick<
-    TableRow<"products">,
+    Tables<"products">,
     | "id"
     | "slug"
     | "name"
