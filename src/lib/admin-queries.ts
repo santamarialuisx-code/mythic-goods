@@ -32,6 +32,29 @@ export type AdminOverview = {
   usingServiceRole: boolean;
 };
 
+export type AdminCategory = { id: string; name: string };
+
+export type AdminProductForm = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  categoryId: string | null;
+  priceCents: number;
+  compareAtCents: number | null;
+  currency: string;
+  active: boolean;
+  variants: {
+    id: string;
+    size: string | null;
+    color: string | null;
+    sku: string | null;
+    stock: number;
+  }[];
+};
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function hasServiceRole() {
   return Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
@@ -141,4 +164,73 @@ export async function listAdminProducts(): Promise<AdminProductRow[]> {
     active: product.active,
     totalStock: stockByProduct.get(product.id) ?? 0,
   }));
+}
+
+export async function listAdminCategories(): Promise<AdminCategory[]> {
+  if (!isSupabaseConfigured) return [];
+
+  const supabase = hasServiceRole() ? createAdminClient() : await createClient();
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id, name")
+    .order("position")
+    .order("name");
+
+  if (error) {
+    console.error("[admin] listAdminCategories failed:", error.message);
+    return [];
+  }
+
+  return data ?? [];
+}
+
+/** Full row for the edit form; `null` when the id is unknown or malformed. */
+export async function getAdminProductForm(
+  id: string,
+): Promise<AdminProductForm | null> {
+  if (!isSupabaseConfigured || !UUID.test(id)) return null;
+
+  const supabase = hasServiceRole() ? createAdminClient() : await createClient();
+
+  const [product, variants] = await Promise.all([
+    supabase
+      .from("products")
+      .select(
+        "id, name, slug, description, category_id, price_cents, compare_at_cents, currency, active",
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("product_variants")
+      .select("id, size, color, sku, stock")
+      .eq("product_id", id)
+      .order("position"),
+  ]);
+
+  if (product.error) {
+    console.error("[admin] getAdminProductForm failed:", product.error.message);
+    return null;
+  }
+
+  if (variants.error) {
+    console.error(
+      "[admin] getAdminProductForm variants failed:",
+      variants.error.message,
+    );
+  }
+
+  if (!product.data) return null;
+
+  return {
+    id: product.data.id,
+    name: product.data.name,
+    slug: product.data.slug,
+    description: product.data.description,
+    categoryId: product.data.category_id,
+    priceCents: product.data.price_cents,
+    compareAtCents: product.data.compare_at_cents,
+    currency: product.data.currency,
+    active: product.data.active,
+    variants: variants.data ?? [],
+  };
 }
