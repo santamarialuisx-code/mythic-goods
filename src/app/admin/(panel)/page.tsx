@@ -69,7 +69,10 @@ export default async function AdminHomePage() {
             Alta, edición y fotos desde el panel — ya funcionan: abrí un producto
             y subí las suyas.
           </li>
-          <li>Carrito + pedido (WhatsApp primero, pago después).</li>
+          <li>
+            Ver los pedidos y confirmar el pago desde acá (la tienda ya los
+            escribe; el panel todavía solo los cuenta).
+          </li>
         </ul>
       </section>
     </div>
