@@ -15,13 +15,17 @@ export const metadata: Metadata = {
 export default function CartPage() {
   return (
     <div className="container-page py-12 md:py-16">
-      <p className="eyebrow">Carrito</p>
-      <h1 className="mt-2 text-3xl font-medium tracking-tight md:text-4xl">
-        Lo que llevás
-      </h1>
+      {/* One column: the lines, the subtotal and the checkout form share the
+          same width, instead of a full-width row with a half-width form. */}
+      <div className="max-w-3xl">
+        <p className="eyebrow">Carrito</p>
+        <h1 className="mt-2 text-3xl font-medium tracking-tight md:text-4xl">
+          Lo que llevás
+        </h1>
 
-      <CartView />
-      <CheckoutForm />
+        <CartView />
+        <CheckoutForm />
+      </div>
     </div>
   );
 }

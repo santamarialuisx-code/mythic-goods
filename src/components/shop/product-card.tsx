@@ -29,25 +29,25 @@ export function ProductCard({
         ) : null}
       </div>
 
-      <div className="mt-3 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          {product.category ? (
-            <p className="eyebrow">{product.category.name}</p>
-          ) : null}
-          <h3 className="mt-1 truncate text-[15px] leading-snug text-bone">
-            {product.name}
-          </h3>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="text-[15px] text-bone">
+      <div className="mt-3">
+        {product.category ? (
+          <p className="eyebrow">{product.category.name}</p>
+        ) : null}
+        <h3 className="mt-1 line-clamp-2 text-[15px] leading-snug text-bone">
+          {product.name}
+        </h3>
+        {/* Both prices on one row: stacked in a right-hand column the
+            strikethrough fell on the name's baseline and read as part of it. */}
+        <p className="mt-1 flex items-baseline gap-2">
+          <span className="text-[15px] text-bone">
             {formatPrice(product.priceCents, product.currency)}
-          </p>
+          </span>
           {product.compareAtCents ? (
-            <p className="text-xs text-mist line-through">
+            <span className="text-xs text-mist line-through">
               {formatPrice(product.compareAtCents, product.currency)}
-            </p>
+            </span>
           ) : null}
-        </div>
+        </p>
       </div>
     </Link>
   );
