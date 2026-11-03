@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { UnicornMark } from "@/components/brand/unicorn-mark";
+import { CartCount } from "@/components/shop/cart-count";
 
 const navItems = [
   { href: "/catalog", label: "Todo" },
@@ -35,6 +36,8 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
+
+        <CartCount />
       </div>
     </header>
   );

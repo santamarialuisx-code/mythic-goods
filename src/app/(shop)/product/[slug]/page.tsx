@@ -4,9 +4,9 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 
 import { ProductMedia } from "@/components/shop/product-media";
-import { Button } from "@/components/ui/button";
+import { ProductPurchase } from "@/components/shop/product-purchase";
 import { getProductBySlug } from "@/lib/catalog/queries";
-import { formatPrice, formatVariantLabel } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -101,36 +101,7 @@ export default async function ProductPage({
             </p>
           ) : null}
 
-          <div className="mt-8">
-            <p className="eyebrow">Variantes</p>
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {product.variants.map((variant) => (
-                <li
-                  key={variant.id}
-                  className={
-                    variant.stock > 0
-                      ? "rounded-full border border-ink-line px-3.5 py-2 text-xs text-bone"
-                      : "rounded-full border border-ink-line/60 px-3.5 py-2 text-xs text-mist/50 line-through"
-                  }
-                >
-                  {formatVariantLabel(variant.size, variant.color)}
-                  <span className="ml-2 font-mono text-[10px] text-mist/70">
-                    {variant.stock > 0 ? `${variant.stock} u.` : "agotado"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="mt-8">
-            <Button disabled className="w-full sm:w-auto">
-              {soldOut ? "Sin stock" : "Agregar al carrito"}
-            </Button>
-            <p className="mt-3 text-xs leading-relaxed text-mist/80">
-              El carrito y el checkout entran en el próximo paso. Por ahora esto
-              es catálogo puro.
-            </p>
-          </div>
+          <ProductPurchase product={product} />
 
           <dl className="mt-10 space-y-3 border-t border-ink-line/70 pt-6 text-xs">
             <div className="flex justify-between gap-4">
