@@ -110,6 +110,20 @@ RLS: anonymous visitors can only `SELECT` active catalog rows. `orders` and
 `order_items` have **no** policies at all, which means anon is denied; writes go
 through server actions with the service_role key.
 
+### Migrations
+
+`supabase/migrations/0001_init.sql` is the baseline. It was applied by hand in
+the SQL Editor before this project tracked migrations, so its history entry was
+recorded with a marker (`apply_migration` named `0001_init`, containing only a
+comment and `select 1`): the deployed schema already matched the file, and
+re-running it would only fail on existing tables.
+
+From here on every schema change is a new file in `supabase/migrations/`, applied
+through the Supabase MCP server's `apply_migration`, which records it in
+`supabase_migrations.schema_migrations`. Compare `list_migrations` with the
+folder before trusting either: a local file without a history row is a proposal,
+not the schema the panel is talking to.
+
 ### Regenerating types
 
 `src/types/database.ts` is generated, never hand-edited: it mirrors whatever the
