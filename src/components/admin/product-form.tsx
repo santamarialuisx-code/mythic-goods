@@ -264,10 +264,21 @@ export function ProductForm({
         </div>
 
         <div className="mt-4 space-y-3">
+          <div className="hidden gap-3 px-3 sm:grid sm:grid-cols-[1fr_1fr_1.2fr_5rem_5rem]">
+            {["Talle", "Color", "SKU", "Stock", ""].map((label) => (
+              <span
+                key={label}
+                className="font-mono text-[10px] uppercase tracking-[0.16em] text-mist/80"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+
           {rows.map((row, index) => (
             <div
               key={row.key}
-              className="grid grid-cols-2 items-start gap-3 rounded-xl border border-ink-line/70 p-3 sm:grid-cols-[1fr_1fr_1.2fr_5rem_auto]"
+              className="grid grid-cols-2 items-start gap-3 rounded-xl border border-ink-line/70 p-3 sm:grid-cols-[1fr_1fr_1.2fr_5rem_5rem]"
             >
               <input
                 type="hidden"
