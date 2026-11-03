@@ -34,14 +34,16 @@ Without env vars you get the 8 demo products and the admin panel reports
 2. Open **SQL Editor**, paste all of `supabase/migrations/0001_init.sql`, run it.
 3. Paste all of `supabase/seed.sql`, run it. You now have 4 categories and 8
    products.
-4. **Project Settings → API**: copy the Project URL, the `anon` key and the
-   `service_role` key.
+4. **Project Settings → API Keys**: copy the Project URL, the **publishable**
+   key and the **secret** key. New projects hand out `sb_publishable_…` and
+   `sb_secret_…`; the older `anon` / `service_role` JWTs still work, and the
+   legacy ones retire in early 2027, so prefer the new pair.
 5. Create `.env.local` in the project root (it is gitignored) and fill in:
 
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
-SUPABASE_SERVICE_ROLE_KEY=<service_role key>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key: sb_publishable_… or legacy anon>
+SUPABASE_SERVICE_ROLE_KEY=<secret key: sb_secret_… or legacy service_role>
 
 ADMIN_PASSWORD=<pick a long password>
 ADMIN_SESSION_SECRET=<npm run secret>
@@ -52,9 +54,9 @@ ADMIN_SESSION_SECRET=<npm run secret>
 Restart `npm run dev`. The header pill in `/admin` flips from `Datos mock` to
 `Supabase` and `/catalog` starts reading real rows.
 
-> `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS. It is only imported by
-> `src/lib/supabase/admin.ts`, which is guarded with `server-only`: importing it
-> from a Client Component is a build error. Keep it that way.
+> `SUPABASE_SERVICE_ROLE_KEY` (the secret key) bypasses RLS. It is only imported
+> by `src/lib/supabase/admin.ts`, which is guarded with `server-only`: importing
+> it from a Client Component is a build error. Keep it that way.
 
 ## Project layout
 
