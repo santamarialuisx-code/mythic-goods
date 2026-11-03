@@ -1,12 +1,16 @@
 import Link from "next/link";
 
-import { listAdminProducts } from "@/lib/admin-queries";
+import { setProductActiveAction } from "@/app/admin/product-actions";
+import { ButtonLink } from "@/components/ui/button";
+import { hasServiceRole, listAdminProducts } from "@/lib/admin-queries";
+import { isSupabaseConfigured } from "@/lib/env";
 import { formatPrice } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminProductsPage() {
   const products = await listAdminProducts();
+  const canWrite = isSupabaseConfigured && hasServiceRole();
 
   return (
     <div className="max-w-5xl">
@@ -17,14 +21,20 @@ export default async function AdminProductsPage() {
             Productos
           </h1>
         </div>
-        <p className="text-xs text-mist">
-          {products.length}{" "}
-          {products.length === 1 ? "producto" : "productos"}
-        </p>
+        <div className="flex items-center gap-4">
+          <p className="text-xs text-mist">
+            {products.length} {products.length === 1 ? "producto" : "productos"}
+          </p>
+          {canWrite ? (
+            <ButtonLink href="/admin/products/new" size="sm">
+              Nuevo producto
+            </ButtonLink>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-6 overflow-x-auto rounded-2xl border border-ink-line">
-        <table className="w-full min-w-[640px] border-collapse text-sm">
+        <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-ink-line text-left">
               {["Producto", "Categoría", "Precio", "Stock", "Estado", ""].map(
@@ -46,7 +56,16 @@ export default async function AdminProductsPage() {
                 className="border-b border-ink-line/60 last:border-0"
               >
                 <td className="px-4 py-3">
-                  <span className="text-bone">{product.name}</span>
+                  {canWrite ? (
+                    <Link
+                      href={`/admin/products/${product.id}`}
+                      className="text-bone transition-colors hover:text-gold"
+                    >
+                      {product.name}
+                    </Link>
+                  ) : (
+                    <span className="text-bone">{product.name}</span>
+                  )}
                   <span className="ml-2 font-mono text-[10px] text-mist/70">
                     {product.slug}
                   </span>
@@ -77,13 +96,39 @@ export default async function AdminProductsPage() {
                     {product.active ? "Activo" : "Oculto"}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right">
-                  <Link
-                    href={`/product/${product.slug}`}
-                    className="text-xs text-mist transition-colors hover:text-bone"
-                  >
-                    Ver →
-                  </Link>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-4">
+                    {canWrite ? (
+                      <>
+                        <form action={setProductActiveAction}>
+                          <input type="hidden" name="id" value={product.id} />
+                          <input
+                            type="hidden"
+                            name="active"
+                            value={product.active ? "false" : "true"}
+                          />
+                          <button
+                            type="submit"
+                            className="text-xs text-mist transition-colors hover:text-bone"
+                          >
+                            {product.active ? "Ocultar" : "Activar"}
+                          </button>
+                        </form>
+                        <Link
+                          href={`/admin/products/${product.id}`}
+                          className="text-xs text-mist transition-colors hover:text-bone"
+                        >
+                          Editar
+                        </Link>
+                      </>
+                    ) : null}
+                    <Link
+                      href={`/product/${product.slug}`}
+                      className="text-xs text-mist transition-colors hover:text-bone"
+                    >
+                      Ver →
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -91,7 +136,10 @@ export default async function AdminProductsPage() {
             {products.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-10 text-center text-mist">
-                  No hay productos todavía. Cargalos en Supabase o corré el seed.
+                  No hay productos todavía.{" "}
+                  {canWrite
+                    ? "Creá el primero."
+                    : "Corré supabase/seed.sql o conectá Supabase."}
                 </td>
               </tr>
             ) : null}
@@ -100,9 +148,18 @@ export default async function AdminProductsPage() {
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-mist/80">
-        Alta y edición desde el panel: próximo paso. Mientras tanto los
-        productos se cargan en Supabase → Table Editor, o con{" "}
-        <code className="text-mist">supabase/seed.sql</code>.
+        {canWrite ? (
+          <>
+            El precio se escribe en dólares y se guarda en centavos enteros. El
+            stock vive en las variantes: un producto sin variantes se muestra
+            sin stock.
+          </>
+        ) : (
+          <>
+            Sin Supabase el panel lee el catálogo mock y no puede escribir. Los
+            pasos para conectar la base están en el README.
+          </>
+        )}
       </p>
     </div>
   );

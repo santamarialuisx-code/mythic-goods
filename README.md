@@ -74,10 +74,10 @@ src/
 ├── components/
 │   ├── brand/unicorn-mark.tsx  # swap this for the real logo
 │   ├── shop/                   # header, footer, card, media
-│   ├── admin/                  # nav, login form
+│   ├── admin/                  # nav, login form, product form, setup notice
 │   └── ui/button.tsx
 ├── lib/
-│   ├── catalog/                # domain types, queries, mock, image URLs
+│   ├── catalog/                # domain types, queries, mock, schema, money
 │   ├── supabase/               # client / server / admin clients
 │   ├── admin-auth.ts           # password verification (server-only)
 │   ├── admin-session.ts        # cookie contract, usable from proxy.ts
@@ -126,6 +126,34 @@ It is **not** user authentication. Before a second person needs access, replace
 `src/lib/admin-auth.ts` with Supabase Auth + an `admin_users` table, keeping the
 check in `src/proxy.ts`.
 
+## Loading products from the panel
+
+`/admin/products` is the catalog's front door: **Nuevo producto** creates, the
+product name or **Editar** opens the same form, and **Ocultar** flips `active`
+(the same flag the shop's RLS policy reads).
+
+- Price is typed in dollars (`18.50` or `18,50`) and stored as integer cents.
+  `parseMoneyInput` splits the string on purpose: `18.50 * 100` evaluated as a
+  float is 1849.9999999999998 and would save a price one cent short.
+- Stock lives in variants — one row per sellable combination. Empty rows are
+  ignored. Editing keeps variant ids, so an order that points at a variant still
+  resolves; deleting one is safe because `order_items` keeps `product_name`,
+  `variant_label` and `unit_price_cents` snapshots.
+- The slug follows the name until you edit it by hand, and must match
+  `^[a-z0-9]+(-[a-z0-9]+)*$`. A duplicate slug or SKU returns a field error, not
+  a raw Postgres message.
+- No delete, on purpose: a product row is referenced by historical orders.
+  Hiding it is the reversible operation; removing catalog data is its own
+  decision.
+- Both actions re-check the admin cookie before writing, so a matcher change in
+  `src/proxy.ts` cannot turn the panel into an open write endpoint.
+- Validation is `src/lib/catalog/schema.ts` (Zod, Spanish messages) and runs
+  server-side; the form only renders the returned `fieldErrors`.
+- A save writes the product row and then reconciles variants. supabase-js has no
+  multi-statement transaction, so a failure in the second step leaves the
+  product saved and the variants untouched — re-saving fixes it. Moving this
+  into one Postgres function is a known follow-up.
+
 ## Venezuela notes (payments come later)
 
 Prices default to `USD` because that is how most local catalogs quote. Payment
@@ -146,9 +174,8 @@ npm run secret   # random 64-char value for ADMIN_SESSION_SECRET
 
 ## Next steps
 
-1. Product create/edit from `/admin` (Zustand + Zod + service role via server
-   actions).
-2. Image upload to the `product-images` bucket.
+1. Image upload to the `product-images` bucket, wired into the product form.
+2. Category management in the panel (today they come from the seed).
 3. Cart (Zustand + localStorage) and order creation.
 4. Checkout handoff: WhatsApp deep link first, then Pago Móvil.
 5. `revalidate = 60` on catalog pages once the data is stable, replacing
