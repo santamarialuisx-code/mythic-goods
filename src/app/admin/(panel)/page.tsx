@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getAdminOverview } from "@/lib/admin-queries";
 import { isSupabaseConfigured } from "@/lib/env";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +12,12 @@ export default async function AdminHomePage() {
   const stats = [
     { label: "Productos", value: overview.products },
     { label: "Activos", value: overview.activeProducts },
-    { label: "Pedidos", value: overview.orders },
-    { label: "Por confirmar", value: overview.pendingOrders },
+    { label: "Pedidos", value: overview.orders, href: "/admin/orders" },
+    {
+      label: "Por confirmar",
+      value: overview.pendingOrders,
+      href: "/admin/orders?estado=pending",
+    },
   ];
 
   return (
@@ -26,10 +31,24 @@ export default async function AdminHomePage() {
         {stats.map((stat) => (
           <div
             key={stat.label}
-            className="rounded-2xl border border-ink-line bg-ink-soft/40 p-5"
+            className={cn(
+              "rounded-2xl border border-ink-line bg-ink-soft/40 p-5",
+              // `relative` lets the label's link stretch over the whole card
+              // without putting an <a> straight inside the <dl>.
+              stat.href && "relative transition-colors hover:border-iris/40",
+            )}
           >
             <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-mist">
-              {stat.label}
+              {stat.href ? (
+                <Link
+                  href={stat.href}
+                  className="transition-colors after:absolute after:inset-0 after:content-[''] hover:text-bone"
+                >
+                  {stat.label}
+                </Link>
+              ) : (
+                stat.label
+              )}
             </dt>
             <dd className="mt-2 text-3xl font-medium tabular-nums">
               {stat.value}
@@ -70,9 +89,15 @@ export default async function AdminHomePage() {
             y subí las suyas.
           </li>
           <li>
-            Ver los pedidos y confirmar el pago desde acá (la tienda ya los
-            escribe; el panel todavía solo los cuenta).
+            <Link
+              href="/admin/orders"
+              className="text-bone underline decoration-mist/40 underline-offset-4"
+            >
+              Revisar los pedidos
+            </Link>{" "}
+            — ya entran a la base y podés confirmar el pago desde acá.
           </li>
+          <li>Categorías administrables: hoy salen del seed.</li>
         </ul>
       </section>
     </div>

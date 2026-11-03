@@ -23,10 +23,10 @@ export function SetupNotice({ missing }: { missing: "supabase" | "service-role" 
         tienda sigue andando con el catálogo mock.
       </p>
       <Link
-        href="/admin/products"
+        href="/admin"
         className="mt-4 inline-block text-xs text-mist transition-colors hover:text-bone"
       >
-        ← Volver a productos
+        ← Volver al panel
       </Link>
     </div>
   );
