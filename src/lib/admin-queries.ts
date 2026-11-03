@@ -22,6 +22,7 @@ export type AdminProductRow = {
   currency: string;
   active: boolean;
   totalStock: number;
+  primaryImagePath: string | null;
 };
 
 export type AdminOverview = {
@@ -44,6 +45,7 @@ export type AdminProductForm = {
   compareAtCents: number | null;
   currency: string;
   active: boolean;
+  images: AdminProductImage[];
   variants: {
     id: string;
     size: string | null;
@@ -51,6 +53,13 @@ export type AdminProductForm = {
     sku: string | null;
     stock: number;
   }[];
+};
+
+export type AdminProductImage = {
+  id: string;
+  path: string;
+  alt: string | null;
+  position: number;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -121,18 +130,23 @@ export async function listAdminProducts(): Promise<AdminProductRow[]> {
       currency: product.currency,
       active: true,
       totalStock: product.totalStock,
+      primaryImagePath: product.primaryImagePath,
     }));
   }
 
   const supabase = hasServiceRole() ? createAdminClient() : await createClient();
 
-  const [products, categories, variants] = await Promise.all([
+  const [products, categories, variants, images] = await Promise.all([
     supabase
       .from("products")
       .select("id, slug, name, category_id, price_cents, currency, active")
       .order("created_at", { ascending: false }),
     supabase.from("categories").select("id, name"),
     supabase.from("product_variants").select("product_id, stock"),
+    supabase
+      .from("product_images")
+      .select("product_id, storage_path, position")
+      .order("position"),
   ]);
 
   if (products.error) {
@@ -152,6 +166,14 @@ export async function listAdminProducts(): Promise<AdminProductRow[]> {
     );
   }
 
+  // Ordered by position, so the first row seen for a product is its main photo.
+  const primaryImageByProduct = new Map<string, string>();
+  for (const image of images.data ?? []) {
+    if (!primaryImageByProduct.has(image.product_id)) {
+      primaryImageByProduct.set(image.product_id, image.storage_path);
+    }
+  }
+
   return (products.data ?? []).map((product) => ({
     id: product.id,
     slug: product.slug,
@@ -163,6 +185,7 @@ export async function listAdminProducts(): Promise<AdminProductRow[]> {
     currency: product.currency,
     active: product.active,
     totalStock: stockByProduct.get(product.id) ?? 0,
+    primaryImagePath: primaryImageByProduct.get(product.id) ?? null,
   }));
 }
 
@@ -192,7 +215,7 @@ export async function getAdminProductForm(
 
   const supabase = hasServiceRole() ? createAdminClient() : await createClient();
 
-  const [product, variants] = await Promise.all([
+  const [product, variants, images] = await Promise.all([
     supabase
       .from("products")
       .select(
@@ -203,6 +226,11 @@ export async function getAdminProductForm(
     supabase
       .from("product_variants")
       .select("id, size, color, sku, stock")
+      .eq("product_id", id)
+      .order("position"),
+    supabase
+      .from("product_images")
+      .select("id, storage_path, alt, position")
       .eq("product_id", id)
       .order("position"),
   ]);
@@ -219,6 +247,13 @@ export async function getAdminProductForm(
     );
   }
 
+  if (images.error) {
+    console.error(
+      "[admin] getAdminProductForm images failed:",
+      images.error.message,
+    );
+  }
+
   if (!product.data) return null;
 
   return {
@@ -231,6 +266,12 @@ export async function getAdminProductForm(
     compareAtCents: product.data.compare_at_cents,
     currency: product.data.currency,
     active: product.data.active,
+    images: (images.data ?? []).map((image) => ({
+      id: image.id,
+      path: image.storage_path,
+      alt: image.alt,
+      position: image.position,
+    })),
     variants: variants.data ?? [],
   };
 }

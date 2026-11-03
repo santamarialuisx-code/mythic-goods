@@ -1,24 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { ADMIN_COOKIE, isAdminSession } from "@/lib/admin-auth";
+import { hasAdminSession, writeBlockedReason } from "@/lib/admin-write-guard";
 import {
   parseProductForm,
   type ProductFormState,
   type ProductVariantInput,
 } from "@/lib/catalog/schema";
-import { isSupabaseConfigured } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Catalog mutations for /admin.
  *
- * `proxy.ts` already gates the routes these actions are posted to. The session
- * check below is the defense in depth for the write path: a server action is an
- * addressable endpoint, and it must not trust that the gate ran.
+ * Session and service_role guards live in `@/lib/admin-write-guard`: every
+ * action re-checks them before touching the database.
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,24 +23,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 type DbError = { code?: string; message: string; details?: string | null };
-
-async function hasAdminSession() {
-  const cookieStore = await cookies();
-
-  return isAdminSession(cookieStore.get(ADMIN_COOKIE)?.value);
-}
-
-function writeBlockedReason() {
-  if (!isSupabaseConfigured) {
-    return "Conectá Supabase antes de guardar: sin credenciales la tienda corre con el catálogo mock.";
-  }
-
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return "Falta SUPABASE_SERVICE_ROLE_KEY: el catálogo se escribe con service_role desde el servidor.";
-  }
-
-  return null;
-}
 
 function toFormError(error: DbError): ProductFormState {
   const hint = `${error.message} ${error.details ?? ""}`.toLowerCase();
