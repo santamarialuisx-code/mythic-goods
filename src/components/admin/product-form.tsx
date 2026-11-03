@@ -244,6 +244,16 @@ export function ProductForm({
         </label>
       </section>
 
+      {product ? null : (
+        <section>
+          <p className="eyebrow">Fotos</p>
+          <p className="mt-1 text-xs text-mist/70">
+            Guardá el producto y subí las fotos enseguida: se agregan desde esta
+            misma ficha, porque cada foto necesita el producto ya creado.
+          </p>
+        </section>
+      )}
+
       <section>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>

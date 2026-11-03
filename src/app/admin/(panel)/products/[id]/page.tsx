@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ProductForm } from "@/components/admin/product-form";
+import { ProductImages } from "@/components/admin/product-images";
 import { SetupNotice } from "@/components/admin/setup-notice";
 import {
   getAdminProductForm,
@@ -53,6 +54,13 @@ export default async function EditProductPage({
 
       <div className="mt-8">
         <ProductForm categories={categories} product={product} />
+      </div>
+
+      {/* Sibling of the form on purpose: a <form> inside the product form is
+          flattened by the HTML parser, and its submit button would save the
+          product instead of uploading. */}
+      <div className="mt-14 border-t border-ink-line/70 pt-10">
+        <ProductImages productId={product.id} images={product.images} />
       </div>
     </div>
   );

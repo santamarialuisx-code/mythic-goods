@@ -1,8 +1,10 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { setProductActiveAction } from "@/app/admin/product-actions";
 import { ButtonLink } from "@/components/ui/button";
 import { hasServiceRole, listAdminProducts } from "@/lib/admin-queries";
+import { productImageUrl } from "@/lib/catalog/images";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatPrice } from "@/lib/format";
 
@@ -56,19 +58,38 @@ export default async function AdminProductsPage() {
                 className="border-b border-ink-line/60 last:border-0"
               >
                 <td className="px-4 py-3">
-                  {canWrite ? (
-                    <Link
-                      href={`/admin/products/${product.id}`}
-                      className="text-bone transition-colors hover:text-gold"
-                    >
-                      {product.name}
-                    </Link>
-                  ) : (
-                    <span className="text-bone">{product.name}</span>
-                  )}
-                  <span className="ml-2 font-mono text-[10px] text-mist/70">
-                    {product.slug}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-ink-line bg-ink-soft">
+                      {product.primaryImagePath ? (
+                        <Image
+                          src={productImageUrl(product.primaryImagePath)}
+                          alt=""
+                          fill
+                          sizes="40px"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-full items-center justify-center font-mono text-[9px] text-mist/50">
+                          —
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      {canWrite ? (
+                        <Link
+                          href={`/admin/products/${product.id}`}
+                          className="text-bone transition-colors hover:text-gold"
+                        >
+                          {product.name}
+                        </Link>
+                      ) : (
+                        <span className="text-bone">{product.name}</span>
+                      )}
+                      <span className="ml-2 font-mono text-[10px] text-mist/70">
+                        {product.slug}
+                      </span>
+                    </div>
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-mist">
                   {product.categoryName ?? "—"}
