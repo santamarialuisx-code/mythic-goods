@@ -65,10 +65,12 @@ export default async function AdminHomePage() {
             </Link>{" "}
             — ya está conectado a tu base.
           </li>
-          <li>Alta y edición de productos desde el panel.</li>
-          <li>Subida de fotos al bucket <code>product-images</code>.</li>
+          <li>
+            Alta, edición y fotos desde el panel — ya funcionan: abrí un producto
+            y subí las suyas.
+          </li>
           <li>Carrito + pedido (WhatsApp primero, pago después).</li>
-        </ul>
+          <li>Categorías administrables (hoy salen del seed).</li>        </ul>
       </section>
     </div>
   );

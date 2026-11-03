@@ -170,6 +170,31 @@ product name or **Editar** opens the same form, and **Ocultar** flips `active`
   product saved and the variants untouched — re-saving fixes it. Moving this
   into one Postgres function is a known follow-up.
 
+## Photos
+
+The **Fotos** section of the edit page writes into the `product-images` bucket
+and the `product_images` table, which the storefront already reads.
+
+- Photos belong to a product that exists: the create form saves first and tells
+you to upload on the next screen. A `product_images` row needs `products.id`,
+so mixing uploads into the create submit would only move the failure.
+- JPG, PNG, WebP or AVIF, at most 5 MB each and 6 per upload
+(`src/lib/catalog/images.ts`). Server Actions cap their body at 1 MB by
+  default, so `next.config.ts` raises `experimental.serverActions.bodySizeLimit`
+to `32mb`; the browser validates the selection first so an oversized upload
+fails with a readable message instead of a framework error.
+- Each file is stored as `<productId>/<uuid>.<ext>`: the original name is
+dropped (accents and spaces make brittle URLs) and the uuid keeps an upload
+from colliding with a photo already in the bucket.
+- `position` is append-only, so the first photo is the primary one in the
+catalog and on the product page. Manual reordering is a separate feature.
+- Removing a photo deletes the row first and the object second, and only under
+that product's prefix. A failed object removal logs an orphan instead of
+leaving a row that points at a missing file. Deleting the object is the one
+irreversible step in the panel: that file is the only copy.
+- The bucket is public-read with no write policy, so uploads and deletes run
+with the service_role key on the server and re-check the admin cookie first.
+
 ## Venezuela notes (payments come later)
 
 Prices default to `USD` because that is how most local catalogs quote. Payment
@@ -193,11 +218,11 @@ npm run secret   # random 64-char value for ADMIN_SESSION_SECRET
 
 ## Next steps
 
-1. Image upload to the `product-images` bucket, wired into the product form.
-2. Category management in the panel (today they come from the seed).
-3. Cart (Zustand + localStorage) and order creation.
-4. Checkout handoff: WhatsApp deep link first, then Pago Móvil.
-5. `revalidate = 60` on catalog pages once the data is stable, replacing
+1. Category management in the panel (today they come from the seed).
+2. Cart (Zustand + localStorage) and order creation.
+3. Checkout handoff: WhatsApp deep link first, then Pago Móvil.
+4. `revalidate = 60` on catalog pages once the data is stable, replacing
    `dynamic = "force-dynamic"`.
-6. Turn `cacheComponents` back on in `next.config.ts` once the data layer is
+5. Turn `cacheComponents` back on in `next.config.ts` once the data layer is
    settled.
+6. Reorder product photos (drag) and edit their `alt` text.
